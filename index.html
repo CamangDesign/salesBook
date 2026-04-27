@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>매출 장부</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F9F5F1; color: #2d3748;
+      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+    }
+    input[type="number"] { -moz-appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* App Header */
+    .app-header {
+      background: linear-gradient(135deg, #222 0%, #222 100%);
+      color: white; padding: 0 24px; height: 54px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15); flex-shrink: 0;
+    }
+    .header-icon { font-size: 20px; }
+    .header-text { display: flex; flex-direction: column; gap: 1px; }
+    .header-title { font-size: 16px; font-weight: 700; }
+    .header-sub { font-size: 11px; font-weight: 400; opacity: 0.6; }
+
+    /* Readonly header */
+    .readonly-header {
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      padding: 11px 24px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .readonly-badge { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; color: #1a202c; }
+    .badge-ro { background: #fef3c7; color: #92400e; font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; letter-spacing: 0.3px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: #1a202c; color: white; padding: 12px 20px; border-radius: 8px;
+      font-size: 13.5px; font-weight: 500; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      z-index: 9999; transform: translateY(80px); opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease; pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    /* Action buttons */
+    .action-bar { display: flex; gap: 7px; align-items: center; }
+    .btn-action {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 8px 13px; border: none; border-radius: 7px;
+      font-size: 12.5px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: all 0.15s; white-space: nowrap;
+    }
+    .btn-share { background: #fff; color: #222; border: 1px solid #aeb1f2; }
+    .btn-share:hover { background: #e1e3ff; }
+    .btn-img { background: #f0fdf4; color: #222; border: 1px solid #8aecac; }
+    .btn-img:hover { background: #dcfce7; }
+    .btn-pdf { background: #fff7ed; color: #222; border: 1px solid #ddab72; }
+    .btn-pdf:hover { background: #ffe3d5; }
+
+    /* App body */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    .sidebar { width: 230px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 16px 16px 12px; border-bottom: 1px solid #e2e8f0; }
+    .sidebar-label { font-size: 10.5px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+    .btn-add-company { display: block; width: 100%; padding: 9px 14px; background: #222; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; font-family: inherit; }
+    .btn-add-company:hover { background: #222; }
+    .company-list { flex: 1; overflow-y: auto; list-style: none; padding: 4px 0; }
+    .company-item { display: flex; align-items: center; padding: 11px 16px; cursor: pointer; border-left: 3px solid transparent; transition: background 0.12s, border-color 0.12s; gap: 6px; }
+    .company-item:hover { background: rgba(194,151,115,0.05); }
+    .company-item.active { background: rgba(194,151,115,0.05); border-left-color: #222; }
+    .company-item-name { flex: 1; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #4a5568; }
+    .company-item.active .company-item-name { color: #222; font-weight: 600; }
+    .btn-del-company { width: 22px; height: 22px; background: none; border: none; color: #cbd5e0; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; border-radius: 4px; opacity: 0; transition: opacity 0.12s, background 0.12s, color 0.12s; flex-shrink: 0; }
+    .company-item:hover .btn-del-company { opacity: 1; }
+    .btn-del-company:hover { background: #fed7d7; color: #e53e3e; }
+
+    /* Main */
+    .main-content { flex: 1; overflow-y: auto; padding: 28px 32px 48px; }
+    .empty-state { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #a0aec0; text-align: center; gap: 10px; }
+    .empty-icon { font-size: 52px; margin-bottom: 6px; opacity: 0.45; }
+    .empty-state h3 { font-size: 17px; color: #718096; }
+    .empty-state p { font-size: 13.5px; }
+
+    /* Ledger */
+    .ledger { max-width: 700px; }
+    .ledger-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
+    .company-name-input { flex: 1; min-width: 0; font-size: 22px; font-weight: 700; color: #1a202c; border: none; border-bottom: 2px solid transparent; background: transparent; padding: 4px 2px 6px; font-family: inherit; transition: border-color 0.2s; }
+    .company-name-input:focus { outline: none; border-bottom-color: #222; }
+    .company-name-input::placeholder { color: #cbd5e0; }
+    .ledger-top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+    .ratio-box { display: flex; align-items: center; gap: 7px; background: rgba(194,151,115,0.05); border: 1px solid #C29773; border-radius: 8px; padding: 8px 12px; }
+    .ratio-label { font-size: 12px; font-weight: 700; color: #222; white-space: nowrap; }
+    .ratio-input { width: 58px; padding: 5px 7px; border: 1px solid #93c5fd; border-radius: 5px; font-size: 14px; text-align: right; font-family: inherit; color: #1a202c; background: white; }
+    .ratio-input:focus { outline: none; border-color: #222; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+    .ratio-pct { font-size: 13px; color: #222; font-weight: 600; }
+
+    /* Period tabs */
+    .period-tabs-wrap { display: flex; align-items: stretch; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 14px; border-radius: 8px; border: 1px solid #e2e8f0; background: white; scrollbar-width: none; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .period-tabs-wrap::-webkit-scrollbar { display: none; }
+    .period-tab { display: inline-flex; align-items: center; gap: 5px; padding: 10px 14px; cursor: pointer; font-size: 13.5px; font-weight: 500; color: #718096; white-space: nowrap; transition: background 0.12s, color 0.12s; flex-shrink: 0; border-right: 1px solid #e2e8f0; user-select: none; }
+    .period-tab:hover:not(.active) { background: rgba(194,151,115,0.05); color: #2d3748; }
+    .period-tab.active { background: #222; color: white; }
+    .tab-ym { pointer-events: none; }
+    .tab-input { width: 102px; border: none; background: transparent; color: white; font-size: 13px; font-family: inherit; outline: none; cursor: pointer; }
+    .tab-btn { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; border-radius: 3px; font-size: 11px; padding: 0; line-height: 1; transition: background 0.12s; }
+    .period-tab:not(.active) .tab-btn { color: #a0aec0; }
+    .period-tab.active .tab-btn { color: rgba(255,255,255,0.7); }
+    .period-tab:not(.active) .tab-btn:hover { background: #e2e8f0; color: #4a5568; }
+    .period-tab.active .tab-btn:hover { background: rgba(0,0,0,0.15); color: white; }
+    .btn-add-period { display: inline-flex; align-items: center; gap: 4px; padding: 10px 14px; background: transparent; border: none; cursor: pointer; font-size: 13px; color: #C29773; font-weight: 600; font-family: inherit; transition: background 0.12s, color 0.12s; white-space: nowrap; flex-shrink: 0; }
+    .btn-add-period:hover { background: rgba(194,151,115,0.05); color: #222; }
+
+    /* Capture header */
+    .capture-header { display: none; padding: 18px 20px 16px; background: linear-gradient(135deg, #1a56db 0%, #1e3a8a 100%); border-radius: 12px 12px 0 0; }
+    .capture-header.visible { display: block; }
+    .capturing .capture-header { display: block; }
+    .capture-header-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .capture-company-name { font-size: 21px; font-weight: 700; color: white; }
+    .capture-company-meta { font-size: 12.5px; color: rgba(255,255,255,0.65); white-space: nowrap; }
+    .capture-header.visible + .table-card { border-radius: 0 0 12px 12px; }
+    .capturing .capture-header + .table-card { border-radius: 0 0 12px 12px; }
+
+    /* Table card */
+    .table-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); overflow: hidden; margin-bottom: 14px; }
+    .ledger-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    .col-num { width: 44px; } .col-qty { width: 100px; } .col-sales { width: 150px; } .col-del { width: 44px; }
+    .ledger-table thead { background: #f8fafc; }
+    .ledger-table th { padding: 11px 12px; font-size: 11.5px; font-weight: 700; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
+    .th-num { text-align: center; } .th-name { text-align: left; } .th-qty { text-align: right; } .th-sales { text-align: right; } .th-del { text-align: center; }
+    .ledger-table tbody tr { transition: background 0.1s; }
+    .ledger-table tbody tr:hover { background: rgba(194,151,115,0.05); }
+    .ledger-table tbody td { border-bottom: 1px solid #f0f4f8; }
+    .td-num { text-align: center; color: #a0aec0; font-size: 12px; padding: 2px 8px; }
+    .td-name { padding: 4px 8px; } .td-qty { padding: 4px 8px; } .td-sales { padding: 4px 8px; } .td-del { padding: 2px 8px; text-align: center; }
+    .cell-input { width: 100%; border: 1px solid transparent; border-radius: 5px; padding: 7px 9px; font-size: 14px; background: transparent; font-family: inherit; color: #2d3748; transition: border-color 0.15s, background 0.15s; }
+    .cell-input:focus { outline: none; border-color: #93c5fd; background: rgba(194,151,115,0.05); }
+    .cell-input.text { text-align: left; } .cell-input.num { text-align: right; }
+    .btn-del-row { width: 28px; height: 28px; background: none; border: none; color: #e2e8f0; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center; border-radius: 5px; margin: 0 auto; transition: background 0.12s, color 0.12s; line-height: 1; }
+    .btn-del-row:hover { background: #fed7d7; color: #e53e3e; }
+    .subtotal-row td { background: #f8fafc; font-weight: 700; font-size: 13px; color: #4a5568; padding: 10px 12px; border-top: 2px solid #e2e8f0; border-bottom: none; }
+    .td-sub-label { text-align: left; padding-left: 16px !important; } .td-sub-qty { text-align: right; } .td-sub-sales { text-align: right; }
+    .btn-add-row { display: block; width: 100%; padding: 11px 16px; background: transparent; border: none; cursor: pointer; color: #C29773; font-size: 13px; font-weight: 600; text-align: left; font-family: inherit; transition: background 0.12s, color 0.12s; }
+    .btn-add-row:hover { background: rgba(194,151,115,0.05); color: #222; }
+    .td-ro { padding: 10px 12px; font-size: 14px; color: #2d3748; }
+    .td-ro.right { text-align: right; } .td-ro.bold { font-weight: 600; }
+
+    /* Summary card */
+    .summary-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); overflow: hidden; }
+    .summary-card-header { padding: 10px 20px 9px; font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
+    .summary-table { width: 100%; border-collapse: collapse; }
+    .summary-table td { padding: 12px 20px; font-size: 14px; }
+    .summary-table tr:not(.row-divider):not(:last-child) td { border-bottom: 1px solid #f0f4f8; }
+    .s-label { color: #718096; font-weight: 500; } .s-value { text-align: right; font-weight: 700; color: #2d3748; font-variant-numeric: tabular-nums; }
+    .row-payment { background: #fffbeb; } .row-payment .s-label { color: #92400e; } .row-payment .s-value { color: #b45309; }
+    .row-divider td { padding: 0; height: 8px; background: #f8fafc; border: none !important; }
+    .row-total { background: #f0fff4; } .row-total .s-label { color: #22543d; font-weight: 700; font-size: 15px; } .row-total .s-value { color: #22543d; font-size: 16px; }
+    .tax-block { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); overflow: hidden; margin-top: 10px; }
+    .tax-block-header { padding: 10px 20px 9px; font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
+
+    .hidden { display: none !important; }
+
+    /* Hamburger (mobile only) */
+    .btn-menu { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; background: rgba(255,255,255,0.15); border: none; border-radius: 6px; color: white; cursor: pointer; font-size: 20px; flex-shrink: 0; margin-right: 2px; transition: background 0.15s; }
+    .btn-menu:hover { background: rgba(255,255,255,0.25); }
+
+    /* Sidebar overlay */
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 199; }
+    .sidebar-overlay.show { display: block; }
+
+    /* Tablet */
+    @media (max-width: 900px) {
+      .sidebar { width: 200px; }
+      .main-content { padding: 20px 20px 40px; }
+      .ledger-top-right { flex-direction: column; align-items: flex-end; }
+    }
+
+    /* Mobile */
+    @media (max-width: 639px) {
+      body { overflow: hidden; }
+      .app-header { padding: 0 14px; gap: 6px; }
+      .btn-menu { display: flex; }
+      .header-title { font-size: 15px; }
+      .sidebar { position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; width: 240px; transform: translateX(-100%); transition: transform 0.25s ease; box-shadow: 4px 0 20px rgba(0,0,0,0.18); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { padding: 16px 14px 56px; width: 100%; }
+      .ledger { max-width: 100%; }
+      .ledger-top { flex-direction: column; gap: 10px; margin-bottom: 12px; }
+      .ledger-top-right { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+      .company-name-input { font-size: 18px; }
+      .ratio-box { padding: 7px 10px; }
+      .action-bar { flex-wrap: wrap; gap: 5px; }
+      .btn-action { padding: 7px 10px; font-size: 12px; }
+      .period-tab { padding: 9px 11px; font-size: 13px; }
+      .btn-add-period { padding: 9px 11px; font-size: 12.5px; }
+      .col-num { width: 28px; } .col-qty { width: 64px; } .col-sales { width: 100px; } .col-del { width: 32px; }
+      .td-num { padding: 2px 4px; font-size: 11px; }
+      .td-name, .td-qty, .td-sales { padding: 3px 5px; } .td-del { padding: 2px 4px; }
+      .cell-input { padding: 6px 6px; font-size: 13px; }
+      .ledger-table th { padding: 9px 7px; font-size: 10px; }
+      .subtotal-row td { padding: 9px 8px; font-size: 12.5px; }
+      .td-ro { padding: 8px 8px; font-size: 13px; }
+      .summary-table td { padding: 10px 14px; font-size: 13.5px; }
+      .row-total .s-label { font-size: 14px; } .row-total .s-value { font-size: 15px; }
+      .readonly-header { flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+      .readonly-badge { font-size: 14px; }
+      .toast { bottom: 14px; right: 14px; left: 14px; text-align: center; }
+    }
+
+    @media print {
+      body { background: white; height: auto; overflow: visible; }
+      #app-header, #readonly-header, .sidebar, .ledger-top, .period-tabs-wrap, .btn-add-row, .btn-del-row, .btn-del-company { display: none !important; }
+      .app-body { display: block; }
+      .main-content { padding: 12px; overflow: visible; }
+      .ledger { max-width: 100%; }
+      #capture-area { padding: 0 !important; background: white !important; }
+      .capture-header { display: block !important; }
+      .capture-header + .table-card { border-radius: 0 0 12px 12px; }
+      .table-card, .summary-card { box-shadow: none; border: 1px solid #ccc; }
+      .cell-input { border: none !important; background: transparent !important; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header" id="app-header">
+  <button class="btn-menu" id="btn-menu" onclick="toggleSidebar()" aria-label="메뉴">☰</button>
+  <span class="header-icon">📒</span>
+  <div class="header-text">
+    <span class="header-title">매출 장부</span>
+    <span class="header-sub">까망 크래프트</span>
+  </div>
+</header>
+
+<header class="readonly-header hidden" id="readonly-header">
+  <div class="readonly-badge">
+    <span>📒</span>
+    <span id="ro-title">매출 장부</span>
+    <span class="badge-ro">읽기 전용</span>
+  </div>
+  <div class="action-bar">
+    <button class="btn-action btn-img" onclick="downloadImage()">📷 이미지 저장</button>
+    <button class="btn-action btn-pdf" onclick="printPDF()">🖨 PDF 저장</button>
+  </div>
+</header>
+
+<div class="toast" id="toast"></div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<div class="app-body">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-label">업체 목록</div>
+      <button class="btn-add-company" onclick="addCompany()">+ 업체 추가</button>
+    </div>
+    <ul class="company-list" id="company-list"></ul>
+  </aside>
+  <main class="main-content">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>업체를 선택하세요</h3>
+      <p>왼쪽에서 업체를 선택하거나 새 업체를 추가하세요.</p>
+    </div>
+    <div class="ledger hidden" id="ledger"></div>
+  </main>
+</div>
+
+<script>
+  /* ── State ──────────────────────────────────────────────────────────────── */
+  let state;
+  try { state = JSON.parse(localStorage.getItem('salesBook')) || { companies: [], activeId: null }; }
+  catch { state = { companies: [], activeId: null }; }
+
+  let sharedData = null;
+
+  /* ── Helpers ────────────────────────────────────────────────────────────── */
+  function save() { try { localStorage.setItem('salesBook', JSON.stringify(state)); } catch(e) {} }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+  function esc(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+
+  function currentYearMonth() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+  function fmtYM(ym) {
+    if (!ym) return '기간 미설정';
+    const parts = ym.split('-');
+    if (parts.length < 2) return ym;
+    return parts[0] + '년 ' + parseInt(parts[1]) + '월';
+  }
+
+  /* ── Migration (old format: company.entries → company.periods) ─────────── */
+  function migrate() {
+    if (!Array.isArray(state.companies)) return;
+    state.companies.forEach(function(c) {
+      if (!Array.isArray(c.periods)) {
+        var pid = uid();
+        c.periods = [{ id: pid, yearMonth: currentYearMonth(), entries: Array.isArray(c.entries) ? c.entries : [] }];
+        c.activePeriodId = pid;
+        delete c.entries;
+      }
+      if (!c.activePeriodId && c.periods.length > 0) {
+        c.activePeriodId = c.periods[0].id;
+      }
+    });
+    save();
+  }
+
+  /* ── Company CRUD ───────────────────────────────────────────────────────── */
+  function addCompany() {
+    var pid = uid();
+    var company = {
+      id: uid(), name: '새 업체', paymentRatio: 70,
+      activePeriodId: pid,
+      periods: [{ id: pid, yearMonth: currentYearMonth(), entries: [
+        { id: uid(), product: '', quantity: '', sales: '' },
+        { id: uid(), product: '', quantity: '', sales: '' },
+        { id: uid(), product: '', quantity: '', sales: '' },
+      ]}]
+    };
+    state.companies.push(company);
+    state.activeId = company.id;
+    save(); renderAll();
+  }
+
+  function deleteCompany(id) {
+    var c = state.companies.find(function(c){ return c.id === id; });
+    if (!c) return;
+    if (!confirm('"' + c.name + '" 업체를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    state.companies = state.companies.filter(function(c){ return c.id !== id; });
+    if (state.activeId === id) state.activeId = state.companies.length > 0 ? state.companies[0].id : null;
+    save(); renderAll();
+  }
+
+  function selectCompany(id) {
+    closeSidebar();
+    if (state.activeId === id) return;
+    state.activeId = id; save(); renderAll();
+  }
+
+  function getActive() { return state.companies.find(function(c){ return c.id === state.activeId; }) || null; }
+
+  /* ── Period CRUD ────────────────────────────────────────────────────────── */
+  function getActivePeriod(company) {
+    if (!company || !Array.isArray(company.periods)) return null;
+    return company.periods.find(function(p){ return p.id === company.activePeriodId; }) || company.periods[0] || null;
+  }
+
+  function addPeriod() {
+    var c = getActive(); if (!c) return;
+    var pid = uid();
+    c.periods.unshift({ id: pid, yearMonth: currentYearMonth(), entries: [
+      { id: uid(), product: '', quantity: '', sales: '' },
+      { id: uid(), product: '', quantity: '', sales: '' },
+      { id: uid(), product: '', quantity: '', sales: '' },
+    ]});
+    c.activePeriodId = pid;
+    save(); renderLedger();
+  }
+
+  function deletePeriod(periodId) {
+    var c = getActive(); if (!c) return;
+    if (c.periods.length <= 1) { showToast('⚠ 마지막 기간은 삭제할 수 없습니다.'); return; }
+    if (!confirm('이 기간의 데이터를 삭제하시겠습니까?')) return;
+    c.periods = c.periods.filter(function(p){ return p.id !== periodId; });
+    if (c.activePeriodId === periodId) c.activePeriodId = c.periods[0].id;
+    save(); renderLedger();
+  }
+
+  function selectPeriod(periodId) {
+    var c = getActive(); if (!c) return;
+    if (c.activePeriodId === periodId) return;
+    c.activePeriodId = periodId; save(); renderLedger();
+  }
+
+  function updatePeriodYM(periodId, ym) {
+    var c = getActive(); if (!c) return;
+    var p = c.periods.find(function(p){ return p.id === periodId; }); if (!p) return;
+    p.yearMonth = ym; save(); renderLedger();
+  }
+
+  function editPeriodYM(periodId) {
+    var c = getActive(); if (!c) return;
+    var p = c.periods.find(function(p){ return p.id === periodId; }); if (!p) return;
+    // Switch to this period first
+    if (c.activePeriodId !== periodId) { c.activePeriodId = periodId; save(); renderLedger(); }
+    var tabEl = document.querySelector('.period-tab[data-pid="' + periodId + '"]');
+    if (!tabEl) return;
+    var ymSpan = tabEl.querySelector('.tab-ym');
+    if (!ymSpan) return;
+    var inp = document.createElement('input');
+    inp.type = 'month';
+    inp.className = 'tab-input';
+    inp.value = p.yearMonth || '';
+    var committed = false;
+    inp.onchange = function() { committed = true; p.yearMonth = this.value; save(); renderLedger(); };
+    inp.onblur  = function() { if (!committed) renderLedger(); };
+    inp.onclick = function(e) { e.stopPropagation(); };
+    inp.onkeydown = function(e) { if (e.key === 'Enter' || e.key === 'Escape') { inp.blur(); } };
+    ymSpan.replaceWith(inp);
+    setTimeout(function(){ inp.focus(); try { inp.showPicker(); } catch(e){} }, 30);
+  }
+
+  /* ── Entry CRUD ─────────────────────────────────────────────────────────── */
+  function addEntry() {
+    var c = getActive(); if (!c) return;
+    var p = getActivePeriod(c); if (!p) return;
+    p.entries.push({ id: uid(), product: '', quantity: '', sales: '' });
+    save(); renderLedger();
+  }
+
+  function deleteEntry(entryId) {
+    var c = getActive(); if (!c) return;
+    var p = getActivePeriod(c); if (!p) return;
+    p.entries = p.entries.filter(function(e){ return e.id !== entryId; });
+    if (p.entries.length === 0) p.entries.push({ id: uid(), product: '', quantity: '', sales: '' });
+    save(); renderLedger();
+  }
+
+  function onNameChange(el) {
+    var c = getActive(); if (!c) return;
+    c.name = el.value; save();
+    var el2 = document.querySelector('.company-item[data-id="' + c.id + '"] .company-item-name');
+    if (el2) el2.textContent = c.name || '(이름 없음)';
+  }
+
+  function onRatioChange(el) {
+    var c = getActive(); if (!c) return;
+    var v = parseFloat(el.value);
+    c.paymentRatio = isNaN(v) ? 0 : Math.min(100, Math.max(0, v));
+    save(); refreshSummary();
+  }
+
+  function onEntryChange(entryId, field, value) {
+    var c = getActive(); if (!c) return;
+    var p = getActivePeriod(c); if (!p) return;
+    var e = p.entries.find(function(e){ return e.id === entryId; }); if (!e) return;
+    e[field] = value; save(); refreshSummary();
+  }
+
+  /* ── Calculations ───────────────────────────────────────────────────────── */
+  function calcSummary(entries, paymentRatio) {
+    var totalQty = 0, totalSales = 0;
+    entries.forEach(function(e){ totalQty += parseFloat(e.quantity)||0; totalSales += parseFloat(e.sales)||0; });
+    var payment = Math.round(totalSales * (paymentRatio / 100));
+    var supply  = payment / 1.1;
+    var tax     = supply * 0.1;
+    return { totalQty: totalQty, totalSales: totalSales, payment: payment, supply: supply, tax: tax, total: payment };
+  }
+
+  function refreshSummary() {
+    var c = getActive(); if (!c) return;
+    var p = getActivePeriod(c); if (!p) return;
+    var s = calcSummary(p.entries, c.paymentRatio);
+    var set = function(id, t){ var el = document.getElementById(id); if (el) el.textContent = t; };
+    set('sub-qty',         fmt(s.totalQty));
+    set('sub-sales',       fmt(s.totalSales) + ' 원');
+    set('s-total-sales',   fmt(s.totalSales) + ' 원');
+    set('s-payment',       fmt(s.payment)    + ' 원');
+    set('s-supply',        fmt(s.supply)     + ' 원');
+    set('s-tax',           fmt(s.tax)        + ' 원');
+    set('s-total',         fmt(s.total)      + ' 원');
+    set('s-payment-label', '업체지급액 (' + c.paymentRatio + '%)');
+  }
+
+  /* ── Share & Download ───────────────────────────────────────────────────── */
+  function getShareUrl(company) {
+    var data = {
+      name: company.name, paymentRatio: company.paymentRatio,
+      activePeriodId: company.activePeriodId,
+      periods: company.periods.map(function(p){
+        return { id: p.id, yearMonth: p.yearMonth,
+          entries: p.entries.map(function(e){ return { product: e.product, quantity: e.quantity, sales: e.sales }; }) };
+      })
+    };
+    var base = window.location.href.split('#')[0];
+    var encoded = btoa(encodeURIComponent(JSON.stringify(data)));
+    return base + '#share=' + encoded;
+  }
+
+  async function copyShareLink() {
+    var c = getActive(); if (!c) return;
+    var url = getShareUrl(c);
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('✓ 링크가 클립보드에 복사되었습니다');
+    } catch { prompt('아래 링크를 복사하세요 (Ctrl+C / Cmd+C):', url); }
+  }
+
+  function showToast(msg) {
+    var el = document.getElementById('toast'); if (!el) return;
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(function(){ el.classList.remove('show'); }, 2500);
+  }
+
+  async function downloadImage() {
+    var el = document.getElementById('capture-area'); if (!el) return;
+    if (typeof html2canvas === 'undefined') { showToast('⚠ 이미지 라이브러리 로딩 중입니다. 잠시 후 다시 시도하세요.'); return; }
+    var c = sharedData || getActive();
+    var name = c ? (c.name || '장부') : '장부';
+    el.classList.add('capturing');
+    var prevPad = el.style.padding, prevBg = el.style.background;
+    el.style.padding = '24px'; el.style.background = '#f0f4f8';
+    try {
+      var canvas = await html2canvas(el, { scale: 2, backgroundColor: '#f0f4f8', useCORS: true, logging: false });
+      var link = document.createElement('a');
+      link.download = name + '_매출장부.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } finally {
+      el.style.padding = prevPad; el.style.background = prevBg;
+      el.classList.remove('capturing');
+    }
+  }
+
+  function printPDF() { window.print(); }
+
+  /* ── Sidebar toggle ─────────────────────────────────────────────────────── */
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebar-overlay').classList.toggle('show');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('show');
+  }
+
+  /* ── Render ─────────────────────────────────────────────────────────────── */
+  function renderAll() { renderSidebar(); renderLedger(); }
+
+  function renderSidebar() {
+    var list = document.getElementById('company-list'); if (!list) return;
+    list.innerHTML = state.companies.map(function(c) {
+      return '<li class="company-item' + (c.id === state.activeId ? ' active' : '') + '" data-id="' + c.id + '" onclick="selectCompany(\'' + c.id + '\')">'
+        + '<span class="company-item-name">' + esc(c.name || '(이름 없음)') + '</span>'
+        + '<button class="btn-del-company" onclick="event.stopPropagation();deleteCompany(\'' + c.id + '\')" title="업체 삭제">×</button>'
+        + '</li>';
+    }).join('');
+  }
+
+  function periodTabsHtml(company) {
+    if (!company || !Array.isArray(company.periods)) return '';
+    var tabs = company.periods.map(function(p) {
+      var active = p.id === company.activePeriodId;
+      return '<div class="period-tab' + (active ? ' active' : '') + '" data-pid="' + p.id + '" onclick="selectPeriod(\'' + p.id + '\')">'
+        + '<span class="tab-ym">' + esc(fmtYM(p.yearMonth)) + '</span>'
+        + '<button class="tab-btn" onclick="event.stopPropagation();editPeriodYM(\'' + p.id + '\')" title="기간 수정">✏</button>'
+        + '<button class="tab-btn" onclick="event.stopPropagation();deletePeriod(\'' + p.id + '\')" title="기간 삭제">×</button>'
+        + '</div>';
+    }).join('');
+    return '<div class="period-tabs-wrap">' + tabs
+      + '<button class="btn-add-period" onclick="addPeriod()">＋ 월 추가</button></div>';
+  }
+
+  function renderLedger() {
+    var c = getActive();
+    var emptyEl = document.getElementById('empty-state');
+    var ledgerEl = document.getElementById('ledger');
+    if (!emptyEl || !ledgerEl) return;
+    if (!c) { emptyEl.classList.remove('hidden'); ledgerEl.classList.add('hidden'); ledgerEl.innerHTML = ''; return; }
+    emptyEl.classList.add('hidden'); ledgerEl.classList.remove('hidden');
+    var p = getActivePeriod(c);
+    var entries = p ? p.entries : [];
+    var s = calcSummary(entries, c.paymentRatio);
+    var periodMeta = (p && p.yearMonth) ? ' · ' + fmtYM(p.yearMonth) : '';
+
+    var rowsHtml = entries.map(function(e, i) {
+      return '<tr>'
+        + '<td class="td-num">' + (i+1) + '</td>'
+        + '<td class="td-name"><input type="text" class="cell-input text" value="' + esc(e.product) + '" placeholder="품목명" oninput="onEntryChange(\'' + e.id + '\',\'product\',this.value)"></td>'
+        + '<td class="td-qty"><input type="number" class="cell-input num" value="' + esc(e.quantity) + '" placeholder="0" oninput="onEntryChange(\'' + e.id + '\',\'quantity\',this.value)"></td>'
+        + '<td class="td-sales"><input type="number" class="cell-input num" value="' + esc(e.sales) + '" placeholder="0" oninput="onEntryChange(\'' + e.id + '\',\'sales\',this.value)"></td>'
+        + '<td class="td-del"><button class="btn-del-row" onclick="deleteEntry(\'' + e.id + '\')" title="행 삭제">×</button></td>'
+        + '</tr>';
+    }).join('');
+
+    ledgerEl.innerHTML =
+      '<div class="ledger-top">'
+      + '<input type="text" class="company-name-input" value="' + esc(c.name) + '" placeholder="업체명" oninput="onNameChange(this)">'
+      + '<div class="ledger-top-right">'
+      + '<div class="ratio-box"><span class="ratio-label">업체지급 비율</span><input type="number" class="ratio-input" value="' + c.paymentRatio + '" min="0" max="100" step="0.1" oninput="onRatioChange(this)"><span class="ratio-pct">%</span></div>'
+      + '<div class="action-bar">'
+      + '<button class="btn-action btn-share" onclick="copyShareLink()">🔗 링크 공유</button>'
+      + '<button class="btn-action btn-img" onclick="downloadImage()">📷 이미지</button>'
+      + '<button class="btn-action btn-pdf" onclick="printPDF()">🖨 PDF</button>'
+      + '</div></div></div>'
+      + periodTabsHtml(c)
+      + '<div id="capture-area">'
+      + '<div class="capture-header"><div class="capture-header-inner">'
+      + '<span class="capture-company-name">' + esc(c.name) + '</span>'
+      + '<span class="capture-company-meta">업체지급 비율 ' + c.paymentRatio + '%' + esc(periodMeta) + '</span>'
+      + '</div></div>'
+      + '<div class="table-card"><table class="ledger-table"><colgroup><col class="col-num"><col><col class="col-qty"><col class="col-sales"><col class="col-del"></colgroup>'
+      + '<thead><tr><th class="th-num">번호</th><th class="th-name">품목명</th><th class="th-qty">수량</th><th class="th-sales">매출 (원)</th><th class="th-del"></th></tr></thead>'
+      + '<tbody>' + rowsHtml + '</tbody>'
+      + '<tfoot><tr class="subtotal-row"><td class="td-sub-label" colspan="2">소계</td><td class="td-sub-qty" id="sub-qty">' + fmt(s.totalQty) + '</td><td class="td-sub-sales" id="sub-sales">' + fmt(s.totalSales) + ' 원</td><td></td></tr></tfoot>'
+      + '</table><button class="btn-add-row" onclick="addEntry()">＋ 행 추가</button></div>'
+      + '<div class="summary-card"><div class="summary-card-header">정산 내역</div><table class="summary-table">'
+      + '<tr><td class="s-label">총매출</td><td class="s-value" id="s-total-sales">' + fmt(s.totalSales) + ' 원</td></tr>'
+      + '<tr class="row-payment"><td class="s-label" id="s-payment-label">업체지급액 (' + c.paymentRatio + '%)</td><td class="s-value" id="s-payment">' + fmt(s.payment) + ' 원</td></tr>'
+      + '</table></div>'
+      + '<div class="tax-block"><div class="tax-block-header">세금계산서 발행시</div><table class="summary-table">'
+      + '<tr><td class="s-label">공급가 (세전)</td><td class="s-value" id="s-supply">' + fmt(s.supply) + ' 원</td></tr>'
+      + '<tr><td class="s-label">공급세액 (10%)</td><td class="s-value" id="s-tax">' + fmt(s.tax) + ' 원</td></tr>'
+      + '<tr class="row-total"><td class="s-label">합계</td><td class="s-value" id="s-total">' + fmt(s.total) + ' 원</td></tr>'
+      + '</table></div></div>';
+  }
+
+  /* ── Read-only (shared) ─────────────────────────────────────────────────── */
+  function detectSharedMode() {
+    var hash = window.location.hash;
+    if (!hash.startsWith('#share=')) return null;
+    try { return JSON.parse(decodeURIComponent(atob(hash.slice(7)))); } catch { return null; }
+  }
+
+  function renderReadOnly(data) {
+    if (!data || typeof data !== 'object') return;
+    var name         = String(data.name || '');
+    var paymentRatio = Math.min(100, Math.max(0, parseFloat(data.paymentRatio) || 0));
+    var periods;
+    if (Array.isArray(data.periods) && data.periods.length > 0) {
+      periods = data.periods.map(function(p) {
+        return { id: p.id || uid(), yearMonth: p.yearMonth || '', entries: Array.isArray(p.entries) ? p.entries : [] };
+      });
+    } else {
+      periods = [{ id: uid(), yearMonth: '', entries: Array.isArray(data.entries) ? data.entries : [] }];
+    }
+    var activeIdx = 0;
+    if (data.activePeriodId) {
+      var idx = periods.findIndex(function(p){ return p.id === data.activePeriodId; });
+      if (idx >= 0) activeIdx = idx;
+    }
+    sharedData = { name: name, paymentRatio: paymentRatio, periods: periods };
+
+    document.getElementById('app-header').classList.add('hidden');
+    document.getElementById('sidebar').classList.add('hidden');
+    document.getElementById('readonly-header').classList.remove('hidden');
+    document.getElementById('ro-title').textContent = name || '매출 장부';
+
+    function renderROView(idx) {
+      var p       = periods[idx];
+      var entries = p ? p.entries : [];
+      var s       = calcSummary(entries, paymentRatio);
+      var periodMeta = (p && p.yearMonth) ? ' · ' + fmtYM(p.yearMonth) : '';
+
+      var tabsHtml = (periods.length > 1) ? (
+        '<div class="period-tabs-wrap">'
+        + periods.map(function(pp, i) {
+            return '<div class="period-tab' + (i === idx ? ' active' : '') + '" onclick="roSelectPeriod(' + i + ')">'
+              + '<span class="tab-ym">' + esc(fmtYM(pp.yearMonth)) + '</span>'
+              + '</div>';
+          }).join('')
+        + '</div>'
+      ) : '';
+
+      var rowsHtml = entries.map(function(e, i) {
+        return '<tr><td class="td-num">' + (i+1) + '</td>'
+          + '<td class="td-ro">' + esc(String(e.product||'')) + '</td>'
+          + '<td class="td-ro right">' + fmt(parseFloat(e.quantity)||0) + '</td>'
+          + '<td class="td-ro right bold">' + fmt(parseFloat(e.sales)||0) + ' 원</td></tr>';
+      }).join('');
+
+      var ledgerEl = document.getElementById('ledger');
+      document.getElementById('empty-state').classList.add('hidden');
+      ledgerEl.classList.remove('hidden');
+      ledgerEl.innerHTML = tabsHtml
+        + '<div id="capture-area">'
+        + '<div class="capture-header visible"><div class="capture-header-inner">'
+        + '<span class="capture-company-name">' + esc(name) + '</span>'
+        + '<span class="capture-company-meta">업체지급 비율 ' + paymentRatio + '%' + esc(periodMeta) + '</span>'
+        + '</div></div>'
+        + '<div class="table-card"><table class="ledger-table"><colgroup><col class="col-num"><col><col class="col-qty"><col class="col-sales"></colgroup>'
+        + '<thead><tr><th class="th-num">번호</th><th class="th-name">품목명</th><th class="th-qty">수량</th><th class="th-sales">매출 (원)</th></tr></thead>'
+        + '<tbody>' + rowsHtml + '</tbody>'
+        + '<tfoot><tr class="subtotal-row"><td class="td-sub-label" colspan="2">소계</td><td class="td-sub-qty">' + fmt(s.totalQty) + '</td><td class="td-sub-sales">' + fmt(s.totalSales) + ' 원</td></tr></tfoot>'
+        + '</table></div>'
+        + '<div class="summary-card"><div class="summary-card-header">정산 내역</div><table class="summary-table">'
+        + '<tr><td class="s-label">총매출</td><td class="s-value">' + fmt(s.totalSales) + ' 원</td></tr>'
+        + '<tr class="row-payment"><td class="s-label">업체지급액 (' + paymentRatio + '%)</td><td class="s-value">' + fmt(s.payment) + ' 원</td></tr>'
+        + '</table></div>'
+        + '<div class="tax-block"><div class="tax-block-header">세금계산서 발행시</div><table class="summary-table">'
+        + '<tr><td class="s-label">공급가 (세전)</td><td class="s-value">' + fmt(s.supply) + ' 원</td></tr>'
+        + '<tr><td class="s-label">공급세액 (10%)</td><td class="s-value">' + fmt(s.tax) + ' 원</td></tr>'
+        + '<tr class="row-total"><td class="s-label">합계</td><td class="s-value">' + fmt(s.total) + ' 원</td></tr>'
+        + '</table></div></div>';
+    }
+
+    window.roSelectPeriod = function(idx) { renderROView(idx); };
+    renderROView(activeIdx);
+  }
+
+  /* ── Init ───────────────────────────────────────────────────────────────── */
+  migrate();
+  sharedData = detectSharedMode();
+  if (sharedData) { renderReadOnly(sharedData); } else { renderAll(); }
+</script>
+</body>
+</html>
