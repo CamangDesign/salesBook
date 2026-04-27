@@ -26,7 +26,7 @@
     .header-icon { font-size: 20px; }
     .header-text { display: flex; flex-direction: column; gap: 1px; }
     .header-title { font-size: 16px; font-weight: 700; }
-    .header-sub { font-size: 11px; font-weight: 400; opacity: 0.6; }
+    .header-sub { font-size: 13px; font-weight: 400; opacity: 0.6; }
 
     /* Readonly header */
     .readonly-header {
@@ -37,7 +37,7 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
     .readonly-badge { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; color: white; }
-    .badge-ro { background: rgba(194,151,115,0.25); color: #F5D9C0; font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid rgba(194,151,115,0.4); }
+    .badge-ro { background: rgba(194,151,115,0.25); color: #F5D9C0; font-size: 13px; padding: 3px 9px; border-radius: 20px; font-weight: 700; letter-spacing: 0.3px; border: 1px solid rgba(194,151,115,0.4); }
 
     /* Toast */
     .toast {
@@ -111,7 +111,7 @@
     .period-tab.active { background: #222; color: white; }
     .tab-ym { pointer-events: none; }
     .tab-input { width: 102px; border: none; background: transparent; color: white; font-size: 13px; font-family: inherit; outline: none; cursor: pointer; }
-    .tab-btn { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; border-radius: 3px; font-size: 11px; padding: 0; line-height: 1; transition: background 0.12s; }
+    .tab-btn { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; background: none; border: none; cursor: pointer; border-radius: 3px; font-size: 13px; padding: 0; line-height: 1; transition: background 0.12s; }
     .period-tab:not(.active) .tab-btn { color: #a0aec0; }
     .period-tab.active .tab-btn { color: rgba(255,255,255,0.7); }
     .period-tab:not(.active) .tab-btn:hover { background: #e2e8f0; color: #4a5568; }
@@ -123,7 +123,7 @@
     .capture-header { display: none; padding: 18px 20px 16px; background: linear-gradient(135deg, #C29773 0%, #8B6A4F 100%); border-radius: 12px 12px 0 0; }
     .capture-header.visible { display: block; }
     .capturing .capture-header { display: block; }
-    .capture-header-inner { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+    .capture-header-inner { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
     .capture-company-name { font-size: 21px; font-weight: 700; color: white; }
     .capture-company-meta { font-size: 12.5px; color: rgba(255,255,255,0.65); white-space: nowrap; }
     .capture-header.visible + .table-card { border-radius: 0 0 12px 12px; }
@@ -155,7 +155,7 @@
 
     /* Summary card */
     .summary-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); overflow: hidden; }
-    .summary-card-header { padding: 10px 20px 9px; font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
+    .summary-card-header { padding: 10px 20px 9px; font-size: 13px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
     .summary-table { width: 100%; border-collapse: collapse; }
     .summary-table td { padding: 12px 20px; font-size: 14px; }
     .summary-table tr:not(.row-divider):not(:last-child) td { border-bottom: 1px solid #f0f4f8; }
@@ -164,7 +164,7 @@
     .row-divider td { padding: 0; height: 8px; background: #f8fafc; border: none !important; }
     .row-total { background: #f0fff4; } .row-total .s-label { color: #22543d; font-weight: 700; font-size: 15px; } .row-total .s-value { color: #22543d; font-size: 16px; }
     .tax-block { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); overflow: hidden; margin-top: 10px; }
-    .tax-block-header { padding: 10px 20px 9px; font-size: 11px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
+    .tax-block-header { padding: 10px 20px 9px; font-size: 13px; font-weight: 700; color: #a0aec0; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 1px solid #f0f4f8; }
 
     .hidden { display: none !important; }
 
@@ -202,11 +202,11 @@
       .period-tab { padding: 9px 11px; font-size: 13px; }
       .btn-add-period { padding: 9px 11px; font-size: 12.5px; }
       .col-num { width: 28px; } .col-qty { width: 64px; } .col-sales { width: 100px; } .col-del { width: 32px; }
-      .td-num { padding: 2px 4px; font-size: 11px; }
+      .td-num { padding: 2px 4px; font-size: 13px; }
       .td-name, .td-qty, .td-sales { padding: 3px 5px; } .td-del { padding: 2px 4px; }
       .cell-input { padding: 6px 6px; font-size: 13px; }
-      .ledger-table th { padding: 9px 7px; font-size: 10px; }
-      .subtotal-row td { padding: 9px 8px; font-size: 12.5px; }
+      .ledger-table th { padding: 9px 7px; font-size: 12px; }
+      .subtotal-row td { padding: 9px 8px; font-size: 12px; }
       .td-ro { padding: 8px 8px; font-size: 13px; }
       .summary-table td { padding: 10px 14px; font-size: 13.5px; }
       .row-total .s-label { font-size: 14px; } .row-total .s-value { font-size: 15px; }
